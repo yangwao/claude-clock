@@ -155,6 +155,35 @@ function walkDirectory(dir: string, projectPath: string): ScannedTodo[] {
 export function scanForTodos(projectPath: string): Todo[] {
   const scannedTodos = walkDirectory(projectPath, projectPath);
 
+  // Sort by file depth (root level first), then by pattern priority, then by file path
+  const patternPriority: Record<string, number> = {
+    'FIXME': 0,
+    'TODO': 1,
+    'PLAN': 2,
+    'SPEC': 3,
+  };
+
+  scannedTodos.sort((a, b) => {
+    // Count path depth (fewer slashes = closer to root)
+    const depthA = (a.filePath.match(/\//g) || []).length;
+    const depthB = (b.filePath.match(/\//g) || []).length;
+
+    if (depthA !== depthB) {
+      return depthA - depthB; // Root level first
+    }
+
+    // Then by pattern priority (FIXME first)
+    const priorityA = patternPriority[a.pattern] ?? 99;
+    const priorityB = patternPriority[b.pattern] ?? 99;
+
+    if (priorityA !== priorityB) {
+      return priorityA - priorityB;
+    }
+
+    // Then alphabetically by file path
+    return a.filePath.localeCompare(b.filePath);
+  });
+
   return scannedTodos.map((scanned) => ({
     id: uuidv4(),
     title: scanned.title,

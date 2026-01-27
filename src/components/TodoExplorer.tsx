@@ -45,6 +45,7 @@ export function TodoExplorer({
         {unscheduledTodos.map((todo, index) => {
           const isSelected = index === selectedIndex;
           const marker = isSelected ? '›' : ' ';
+          const patternColor = todo.pattern === 'FIXME' ? 'red' : todo.pattern === 'TODO' ? 'yellow' : todo.pattern === 'PLAN' ? 'blue' : 'magenta';
 
           return (
             <Box
@@ -53,11 +54,14 @@ export function TodoExplorer({
               paddingX={1}
             >
               <Box>
-                <Text dimColor={!isSelected}>
-                  {marker} {todo.pattern.toLowerCase()}
+                <Text color={isSelected ? 'cyan' : undefined} dimColor={!isSelected}>
+                  {marker}{' '}
                 </Text>
-                <Text dimColor={!isSelected}> · </Text>
-                <Text dimColor={!isSelected}>{todo.title}</Text>
+                <Text color={patternColor} dimColor={!isSelected}>
+                  {todo.pattern.toLowerCase()}
+                </Text>
+                <Text dimColor> · </Text>
+                <Text color={isSelected ? 'white' : undefined} dimColor={!isSelected}>{todo.title}</Text>
               </Box>
 
               {todo.filePath && (
@@ -85,7 +89,7 @@ export function TodoExplorer({
 
       {assignMode && (
         <Box marginTop={1} flexDirection="column" paddingX={1}>
-          <Text dimColor>assign to:</Text>
+          <Text color="green">assign to:</Text>
           {sessions.map((session, index) => {
             const isSessionSelected = index === assignSessionIndex;
             const marker = isSessionSelected ? '›' : ' ';
@@ -96,7 +100,7 @@ export function TodoExplorer({
 
             return (
               <Box key={session.id}>
-                <Text dimColor={!isSessionSelected}>
+                <Text color={isSessionSelected ? 'cyan' : undefined} dimColor={!isSessionSelected}>
                   {marker} session {index + 1} · {startTime}
                 </Text>
               </Box>
