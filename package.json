@@ -1,6 +1,6 @@
 {
   "name": "claude-clock",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "TUI utility for scheduling Claude Code build sessions during off-peak hours",
   "main": "dist/cli.js",
   "type": "module",
