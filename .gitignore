@@ -1,0 +1,5 @@
+node_modules/
+dist/
+.claude-clock-cache.json
+.claude-clock.json
+SCHEDULE.md

@@ -1,0 +1,33 @@
+{
+  "name": "claude-clock",
+  "version": "1.0.0",
+  "description": "TUI utility for scheduling Claude Code build sessions during off-peak hours",
+  "main": "dist/index.js",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsc && node dist/index.js"
+  },
+  "keywords": [
+    "claude",
+    "scheduler",
+    "tui",
+    "terminal"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "chalk": "^4.1.2",
+    "date-fns": "^3.6.0",
+    "ink": "^4.4.1",
+    "ink-select-input": "^5.0.0",
+    "react": "^18.2.0",
+    "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/react": "^18.2.48",
+    "@types/uuid": "^9.0.7",
+    "typescript": "^5.3.3"
+  }
+}

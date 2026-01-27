@@ -1,0 +1,19 @@
+# Claude Clock Schedule
+
+## Config
+- Sleep hours: 22:00 - 07:00
+- Session duration: 5 hours (rolling window)
+
+## Upcoming Sessions
+
+### Session 1: Tonight 10:00 PM - 3:00 AM
+- [ ] TODO: Implement user authentication (src/auth.ts:45)
+- [ ] FIXME: Memory leak in event handler (src/events.ts:120)
+
+### Session 2: Tonight 3:00 AM - 8:00 AM
+- [ ] PLAN: Refactor database layer
+- [ ] SPEC: Write API documentation
+
+## Unscheduled TODOs
+- [ ] TODO: Add unit tests for scheduler
+- [ ] FIXME: Handle edge case in parser
