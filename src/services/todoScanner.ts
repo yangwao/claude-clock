@@ -152,8 +152,33 @@ function walkDirectory(dir: string, projectPath: string): ScannedTodo[] {
   return todos;
 }
 
+// Files that contain Claude-specific tasks
+const CLAUDE_TODO_FILES = [
+  'CLAUDE.md',
+  'CLAUDE_TODOS.md',
+  '.claude/todos.md',
+  '.claude/tasks.md',
+];
+
+function scanClaudeTodos(projectPath: string): ScannedTodo[] {
+  const todos: ScannedTodo[] = [];
+
+  for (const file of CLAUDE_TODO_FILES) {
+    const filePath = path.join(projectPath, file);
+    if (fs.existsSync(filePath)) {
+      todos.push(...scanFile(filePath, projectPath));
+    }
+  }
+
+  return todos;
+}
+
 export function scanForTodos(projectPath: string): Todo[] {
   const scannedTodos = walkDirectory(projectPath, projectPath);
+  const claudeTodos = scanClaudeTodos(projectPath);
+
+  // Mark Claude TODOs
+  const claudeFilePaths = new Set(CLAUDE_TODO_FILES);
 
   // Sort by file depth (root level first), then by pattern priority, then by file path
   const patternPriority: Record<string, number> = {
@@ -163,37 +188,52 @@ export function scanForTodos(projectPath: string): Todo[] {
     'SPEC': 3,
   };
 
-  scannedTodos.sort((a, b) => {
-    // Count path depth (fewer slashes = closer to root)
-    const depthA = (a.filePath.match(/\//g) || []).length;
-    const depthB = (b.filePath.match(/\//g) || []).length;
+  const sortTodos = (todos: ScannedTodo[]) => {
+    todos.sort((a, b) => {
+      // Count path depth (fewer slashes = closer to root)
+      const depthA = (a.filePath.match(/\//g) || []).length;
+      const depthB = (b.filePath.match(/\//g) || []).length;
 
-    if (depthA !== depthB) {
-      return depthA - depthB; // Root level first
-    }
+      if (depthA !== depthB) {
+        return depthA - depthB; // Root level first
+      }
 
-    // Then by pattern priority (FIXME first)
-    const priorityA = patternPriority[a.pattern] ?? 99;
-    const priorityB = patternPriority[b.pattern] ?? 99;
+      // Then by pattern priority (FIXME first)
+      const priorityA = patternPriority[a.pattern] ?? 99;
+      const priorityB = patternPriority[b.pattern] ?? 99;
 
-    if (priorityA !== priorityB) {
-      return priorityA - priorityB;
-    }
+      if (priorityA !== priorityB) {
+        return priorityA - priorityB;
+      }
 
-    // Then alphabetically by file path
-    return a.filePath.localeCompare(b.filePath);
-  });
+      // Then alphabetically by file path
+      return a.filePath.localeCompare(b.filePath);
+    });
+  };
 
-  return scannedTodos.map((scanned) => ({
+  sortTodos(claudeTodos);
+  sortTodos(scannedTodos);
+
+  // Filter out Claude files from scanned todos (they're in claudeTodos)
+  const projectTodos = scannedTodos.filter(
+    (t) => !claudeFilePaths.has(t.filePath) && !t.filePath.startsWith('.claude/')
+  );
+
+  const mapToTodo = (scanned: ScannedTodo, source: 'scanned' | 'claude'): Todo => ({
     id: uuidv4(),
     title: scanned.title,
-    source: 'scanned' as const,
+    source,
     filePath: scanned.filePath,
     lineNumber: scanned.lineNumber,
     pattern: scanned.pattern,
     context: scanned.context,
     scheduledSessionId: undefined,
-  }));
+  });
+
+  return [
+    ...claudeTodos.map((t) => mapToTodo(t, 'claude')),
+    ...projectTodos.map((t) => mapToTodo(t, 'scanned')),
+  ];
 }
 
 export function createManualTodo(

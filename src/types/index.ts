@@ -9,7 +9,7 @@ export interface Session {
 export interface Todo {
   id: string;
   title: string;
-  source: 'scanned' | 'manual';
+  source: 'scanned' | 'manual' | 'claude';
   filePath?: string;
   lineNumber?: number;
   pattern: 'TODO' | 'FIXME' | 'PLAN' | 'SPEC';
