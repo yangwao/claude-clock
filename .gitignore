@@ -2,4 +2,6 @@ node_modules/
 dist/
 .claude-clock-cache.json
 .claude-clock.json
+.claude-clock-daemon.json
+.claude-clock-logs/
 SCHEDULE.md
