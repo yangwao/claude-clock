@@ -33,18 +33,16 @@ export function Dashboard({
   const totalTodoCount = todos.length;
 
   return (
-    <Box flexDirection="column" width={60}>
+    <Box flexDirection="column" width={56}>
       <StatusBar sessions={sessions} />
 
-      <Box marginTop={1} flexDirection="column">
+      <Box flexDirection="column">
         {view === 'dashboard' && (
           <>
             <Box paddingX={1}>
-              <Text bold color="cyan">
-                UPCOMING SESSIONS
-              </Text>
+              <Text>sessions</Text>
             </Box>
-            <Box marginTop={1} flexDirection="column" borderStyle="single" borderColor="gray">
+            <Box flexDirection="column">
               <SessionList
                 sessions={sessions.slice(0, 5)}
                 selectedIndex={selectedSessionIndex}
@@ -56,44 +54,45 @@ export function Dashboard({
             </Box>
 
             <Box marginTop={1} paddingX={1}>
-              <Text color="gray">
-                {totalTodoCount} TODOs found, {unscheduledCount} unscheduled
+              <Text dimColor>
+                {totalTodoCount} items · {unscheduledCount} unscheduled
               </Text>
             </Box>
           </>
         )}
 
         {view === 'todos' && (
-          <Box borderStyle="single" borderColor="gray">
-            <TodoExplorer
-              todos={todos}
-              sessions={sessions}
-              selectedIndex={selectedTodoIndex}
-              assignMode={assignMode}
-              assignSessionIndex={assignSessionIndex}
-            />
-          </Box>
+          <TodoExplorer
+            todos={todos}
+            sessions={sessions}
+            selectedIndex={selectedTodoIndex}
+            assignMode={assignMode}
+            assignSessionIndex={assignSessionIndex}
+          />
         )}
 
         {view === 'schedule' && (
-          <Box borderStyle="single" borderColor="gray">
-            <ScheduleView config={config} selectedField={selectedConfigField} />
-          </Box>
+          <ScheduleView config={config} selectedField={selectedConfigField} />
         )}
       </Box>
 
-      <Box marginTop={1} borderStyle="single" borderColor="gray" paddingX={1}>
-        <Text color={view === 'dashboard' ? 'cyan' : 'gray'}>
-          [D]ashboard
+      <Box marginTop={1} paddingX={1}>
+        <Text dimColor={view !== 'dashboard'} color={view === 'dashboard' ? 'white' : undefined}>
+          d
         </Text>
-        <Text> </Text>
-        <Text color={view === 'todos' ? 'cyan' : 'gray'}>[T]odos</Text>
-        <Text> </Text>
-        <Text color={view === 'schedule' ? 'cyan' : 'gray'}>[S]chedule</Text>
-        <Text> </Text>
-        <Text color="gray">[R]efresh</Text>
-        <Text> </Text>
-        <Text color="gray">[Q]uit</Text>
+        <Text dimColor> dashboard  </Text>
+        <Text dimColor={view !== 'todos'} color={view === 'todos' ? 'white' : undefined}>
+          t
+        </Text>
+        <Text dimColor> todos  </Text>
+        <Text dimColor={view !== 'schedule'} color={view === 'schedule' ? 'white' : undefined}>
+          s
+        </Text>
+        <Text dimColor> settings  </Text>
+        <Text dimColor>r</Text>
+        <Text dimColor> refresh  </Text>
+        <Text dimColor>q</Text>
+        <Text dimColor> quit</Text>
       </Box>
     </Box>
   );

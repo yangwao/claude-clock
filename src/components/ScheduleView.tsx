@@ -10,52 +10,47 @@ interface ScheduleViewProps {
 
 export function ScheduleView({ config, selectedField }: ScheduleViewProps) {
   const fields = [
-    { label: 'Sleep Start', value: config.sleepStart, key: 'sleepStart' },
-    { label: 'Sleep End', value: config.sleepEnd, key: 'sleepEnd' },
-    { label: 'Project Path', value: config.projectPath, key: 'projectPath' },
+    { label: 'sleep start', value: config.sleepStart, key: 'sleepStart' },
+    { label: 'sleep end', value: config.sleepEnd, key: 'sleepEnd' },
+    { label: 'project', value: config.projectPath, key: 'projectPath' },
   ];
 
   return (
-    <Box flexDirection="column">
+    <Box flexDirection="column" paddingY={1}>
       <Box paddingX={1}>
-        <Text bold color="cyan">
-          SCHEDULE SETTINGS
-        </Text>
+        <Text>settings</Text>
       </Box>
 
       <Box marginTop={1} flexDirection="column" paddingX={1}>
         {fields.map((field, index) => {
           const isSelected = index === selectedField;
+          const marker = isSelected ? '›' : ' ';
 
           return (
-            <Box key={field.key} marginBottom={1}>
-              <Text color={isSelected ? 'cyan' : 'white'} inverse={isSelected}>
-                {isSelected ? '▶ ' : '  '}
-                {field.label}:
+            <Box key={field.key}>
+              <Text dimColor={!isSelected}>
+                {marker} {field.label}
               </Text>
-              <Text color="yellow"> {field.value}</Text>
+              <Text dimColor> · </Text>
+              <Text dimColor={!isSelected}>{field.value}</Text>
             </Box>
           );
         })}
       </Box>
 
       <Box marginTop={1} paddingX={1} flexDirection="column">
-        <Text color="gray">Session Configuration:</Text>
-        <Text color="gray">  • Duration: 5 hours (rolling window)</Text>
-        <Text color="gray">  • Sessions auto-generate within sleep hours</Text>
+        <Text dimColor>session duration · 5 hours</Text>
+        <Text dimColor>sessions auto-generate within sleep hours</Text>
       </Box>
 
       <Box marginTop={1} paddingX={1} flexDirection="column">
-        <Text color="gray">Files:</Text>
-        <Text color="gray">  • SCHEDULE.md - Human-readable schedule</Text>
-        <Text color="gray">  • .claude-clock.json - Configuration</Text>
-        <Text color="gray">  • .claude-clock-cache.json - Session cache</Text>
+        <Text dimColor>files:</Text>
+        <Text dimColor>  SCHEDULE.md</Text>
+        <Text dimColor>  .claude-clock.json</Text>
       </Box>
 
       <Box marginTop={1} paddingX={1}>
-        <Text color="gray">
-          Edit .claude-clock.json directly to change settings
-        </Text>
+        <Text dimColor>edit .claude-clock.json to change settings</Text>
       </Box>
     </Box>
   );

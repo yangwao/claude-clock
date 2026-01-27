@@ -8,14 +8,14 @@ interface StatusBarProps {
   sessions: Session[];
 }
 
-function ProgressBar({ progress, width = 20 }: { progress: number; width?: number }) {
+function ProgressBar({ progress, width = 24 }: { progress: number; width?: number }) {
   const filled = Math.round((progress / 100) * width);
   const empty = width - filled;
 
   return (
-    <Text>
-      <Text color="green">{'━'.repeat(filled)}</Text>
-      <Text color="gray">{'░'.repeat(empty)}</Text>
+    <Text dimColor>
+      {'●'.repeat(filled)}
+      {'·'.repeat(empty)}
     </Text>
   );
 }
@@ -37,14 +37,13 @@ export function StatusBar({ sessions }: StatusBarProps) {
     } else {
       const minutes = nextSessionInfo.minutes;
       if (minutes < 60) {
-        statusText = `Next Session: ${minutes} min`;
+        statusText = `Next session in ${minutes} min`;
       } else {
         const hours = Math.floor(minutes / 60);
         const mins = minutes % 60;
-        statusText = `Next Session: ${hours}h ${mins}m`;
+        statusText = `Next session in ${hours}h ${mins}m`;
       }
 
-      // Calculate progress until next session (inverse)
       if (nextSession) {
         const now = new Date();
         const fiveHoursAgo = new Date(now.getTime() - 5 * 60 * 60 * 1000);
@@ -56,20 +55,15 @@ export function StatusBar({ sessions }: StatusBarProps) {
   }
 
   return (
-    <Box flexDirection="column" borderStyle="single" borderColor="cyan" paddingX={1}>
+    <Box flexDirection="column" paddingX={1} paddingY={1}>
       <Box justifyContent="space-between">
-        <Text bold color="cyan">
-          CLAUDE CLOCK
-        </Text>
-        <Text color="gray">{timeDisplay}</Text>
+        <Text>claude-clock</Text>
+        <Text dimColor>{timeDisplay}</Text>
       </Box>
-      <Box marginTop={1}>
-        <Box flexDirection="column" flexGrow={1}>
-          <Text>{statusText}</Text>
-          <Box marginTop={0}>
-            <ProgressBar progress={progress} width={30} />
-            <Text color="gray"> {Math.round(progress)}%</Text>
-          </Box>
+      <Box marginTop={1} flexDirection="column">
+        <Text dimColor>{statusText}</Text>
+        <Box marginTop={0}>
+          <ProgressBar progress={progress} width={24} />
         </Box>
       </Box>
     </Box>
