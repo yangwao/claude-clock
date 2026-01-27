@@ -27,11 +27,15 @@
     "automation",
     "anthropic"
   ],
-  "author": "",
+  "author": "yangwao",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": ""
+    "url": "https://github.com/yangwao/claude-clock.git"
+  },
+  "homepage": "https://github.com/yangwao/claude-clock#readme",
+  "bugs": {
+    "url": "https://github.com/yangwao/claude-clock/issues"
   },
   "engines": {
     "node": ">=18.0.0"
