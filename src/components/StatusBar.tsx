@@ -1,15 +1,19 @@
 import React from 'react';
 import { Box, Text } from 'ink';
-import { Session } from '../types/index.js';
-import { getCurrentTimeDisplay, getMinutesUntil, calculateProgress } from '../utils/time.js';
+import { Session, RateLimitInfo } from '../types/index.js';
+import { getCurrentTimeDisplay, calculateProgress } from '../utils/time.js';
 import { getNextSession, getTimeUntilNextSession } from '../services/scheduler.js';
+import { formatTimeUntilReset } from '../services/apiUsage.js';
 
 interface StatusBarProps {
   sessions: Session[];
+  rateLimit: RateLimitInfo | null;
+  usageError: string | null;
 }
 
-function ProgressBar({ progress, width = 24 }: { progress: number; width?: number }) {
-  const filled = Math.round((progress / 100) * width);
+function UsageBar({ remaining, limit, width = 16 }: { remaining: number; limit: number; width?: number }) {
+  const ratio = Math.min(1, remaining / limit);
+  const filled = Math.round(ratio * width);
   const empty = width - filled;
 
   return (
@@ -20,38 +24,25 @@ function ProgressBar({ progress, width = 24 }: { progress: number; width?: numbe
   );
 }
 
-export function StatusBar({ sessions }: StatusBarProps) {
+export function StatusBar({ sessions, rateLimit, usageError }: StatusBarProps) {
   const timeDisplay = getCurrentTimeDisplay();
   const nextSessionInfo = getTimeUntilNextSession(sessions);
   const nextSession = getNextSession(sessions);
 
-  let statusText = '';
-  let progress = 0;
-
+  let sessionStatus = '';
   if (nextSessionInfo) {
     if (nextSessionInfo.isActive) {
-      statusText = 'Session Active';
-      if (nextSession) {
-        progress = calculateProgress(nextSession.startTime, nextSession.endTime);
-      }
+      sessionStatus = 'session active';
     } else {
       const minutes = nextSessionInfo.minutes;
       if (minutes < 60) {
-        statusText = `Next session in ${minutes} min`;
+        sessionStatus = `next in ${minutes}m`;
       } else {
         const hours = Math.floor(minutes / 60);
         const mins = minutes % 60;
-        statusText = `Next session in ${hours}h ${mins}m`;
-      }
-
-      if (nextSession) {
-        const now = new Date();
-        const fiveHoursAgo = new Date(now.getTime() - 5 * 60 * 60 * 1000);
-        progress = calculateProgress(fiveHoursAgo, nextSession.startTime);
+        sessionStatus = `next in ${hours}h ${mins}m`;
       }
     }
-  } else {
-    statusText = 'No sessions scheduled';
   }
 
   return (
@@ -60,12 +51,38 @@ export function StatusBar({ sessions }: StatusBarProps) {
         <Text>claude-clock</Text>
         <Text dimColor>{timeDisplay}</Text>
       </Box>
-      <Box marginTop={1} flexDirection="column">
-        <Text dimColor>{statusText}</Text>
-        <Box marginTop={0}>
-          <ProgressBar progress={progress} width={24} />
+
+      {rateLimit ? (
+        <Box marginTop={1} flexDirection="column">
+          <Box>
+            <Text dimColor>requests </Text>
+            <UsageBar remaining={rateLimit.requestsRemaining} limit={rateLimit.requestsLimit} width={12} />
+            <Text dimColor> {rateLimit.requestsRemaining}/{rateLimit.requestsLimit}</Text>
+          </Box>
+          <Box>
+            <Text dimColor>tokens   </Text>
+            <UsageBar remaining={rateLimit.tokensRemaining} limit={rateLimit.tokensLimit} width={12} />
+            <Text dimColor> {Math.round(rateLimit.tokensRemaining / 1000)}k/{Math.round(rateLimit.tokensLimit / 1000)}k</Text>
+          </Box>
+          <Box marginTop={0}>
+            <Text dimColor>resets in {formatTimeUntilReset(rateLimit.tokensReset)}</Text>
+            {sessionStatus && <Text dimColor> · {sessionStatus}</Text>}
+          </Box>
         </Box>
-      </Box>
+      ) : (
+        <Box marginTop={1} flexDirection="column">
+          <Text dimColor>
+            {usageError === 'no api key'
+              ? 'set ANTHROPIC_API_KEY for usage stats'
+              : usageError
+                ? `usage: ${usageError}`
+                : 'loading usage...'}
+          </Text>
+          {sessionStatus && (
+            <Text dimColor>{sessionStatus}</Text>
+          )}
+        </Box>
+      )}
     </Box>
   );
 }

@@ -30,3 +30,12 @@ export interface ScheduleData {
 }
 
 export type ViewMode = 'dashboard' | 'todos' | 'schedule';
+
+export interface RateLimitInfo {
+  requestsLimit: number;
+  requestsRemaining: number;
+  requestsReset: Date;
+  tokensLimit: number;
+  tokensRemaining: number;
+  tokensReset: Date;
+}

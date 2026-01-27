@@ -1,6 +1,6 @@
 import React from 'react';
 import { Box, Text } from 'ink';
-import { Session, Todo, Config, ViewMode } from '../types/index.js';
+import { Session, Todo, Config, ViewMode, RateLimitInfo } from '../types/index.js';
 import { StatusBar } from './StatusBar.js';
 import { SessionList, SessionDetail } from './SessionList.js';
 import { TodoExplorer } from './TodoExplorer.js';
@@ -16,6 +16,8 @@ interface DashboardProps {
   selectedConfigField: number;
   assignMode: boolean;
   assignSessionIndex: number;
+  rateLimit: RateLimitInfo | null;
+  usageError: string | null;
 }
 
 export function Dashboard({
@@ -28,13 +30,15 @@ export function Dashboard({
   selectedConfigField,
   assignMode,
   assignSessionIndex,
+  rateLimit,
+  usageError,
 }: DashboardProps) {
   const unscheduledCount = todos.filter((t) => !t.scheduledSessionId).length;
   const totalTodoCount = todos.length;
 
   return (
     <Box flexDirection="column" width={56}>
-      <StatusBar sessions={sessions} />
+      <StatusBar sessions={sessions} rateLimit={rateLimit} usageError={usageError} />
 
       <Box flexDirection="column">
         {view === 'dashboard' && (
@@ -89,8 +93,8 @@ export function Dashboard({
           s
         </Text>
         <Text dimColor> settings  </Text>
-        <Text dimColor>r</Text>
-        <Text dimColor> refresh  </Text>
+        <Text dimColor>u</Text>
+        <Text dimColor> usage  </Text>
         <Text dimColor>q</Text>
         <Text dimColor> quit</Text>
       </Box>

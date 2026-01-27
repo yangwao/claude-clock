@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { render, Box, Text, useInput, useApp } from 'ink';
-import { Session, Todo, Config, ViewMode } from './types/index.js';
+import { Session, Todo, Config, ViewMode, RateLimitInfo } from './types/index.js';
 import { Dashboard } from './components/Dashboard.js';
 import { loadConfig, saveConfig } from './services/storage.js';
 import {
@@ -13,6 +13,7 @@ import {
   loadCache,
   scheduleFileExists,
 } from './services/scheduleFile.js';
+import { checkUsage, getApiKey } from './services/apiUsage.js';
 
 function App() {
   const { exit } = useApp();
@@ -29,10 +30,36 @@ function App() {
   const [assignSessionIndex, setAssignSessionIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [statusMessage, setStatusMessage] = useState('');
+  const [rateLimit, setRateLimit] = useState<RateLimitInfo | null>(null);
+  const [usageError, setUsageError] = useState<string | null>(null);
 
   // Initialize data
   useEffect(() => {
     initializeData();
+  }, []);
+
+  // Fetch usage data on start and periodically
+  useEffect(() => {
+    const fetchUsage = async () => {
+      if (!getApiKey()) {
+        setUsageError('no api key');
+        return;
+      }
+
+      const result = await checkUsage();
+      if (result.success && result.rateLimit) {
+        setRateLimit(result.rateLimit);
+        setUsageError(null);
+      } else {
+        setUsageError(result.error || 'unknown error');
+      }
+    };
+
+    fetchUsage();
+
+    // Refresh usage every 5 minutes
+    const interval = setInterval(fetchUsage, 5 * 60 * 1000);
+    return () => clearInterval(interval);
   }, []);
 
   // Update session statuses periodically
@@ -67,12 +94,12 @@ function App() {
       const mergedTodos = mergeTodos(loadedTodos, scannedTodos);
 
       // Separate scheduled and unscheduled
-      const unscheduledTodos = mergedTodos.filter((t) => !t.scheduledSessionId);
+      const unscheduledTodos = mergedTodos.filter((t: Todo) => !t.scheduledSessionId);
 
       // Update sessions with their assigned todos
       const sessionsWithTodos = loadedSessions.map((session) => ({
         ...session,
-        todos: mergedTodos.filter((t) => t.scheduledSessionId === session.id),
+        todos: mergedTodos.filter((t: Todo) => t.scheduledSessionId === session.id),
       }));
 
       setSessions(sessionsWithTodos);
@@ -95,12 +122,12 @@ function App() {
     try {
       const scannedTodos = scanForTodos(config.projectPath);
       const mergedTodos = mergeTodos(todos, scannedTodos);
-      const unscheduledTodos = mergedTodos.filter((t) => !t.scheduledSessionId);
+      const unscheduledTodos = mergedTodos.filter((t: Todo) => !t.scheduledSessionId);
 
       // Update sessions with their assigned todos
       const sessionsWithTodos = sessions.map((session) => ({
         ...session,
-        todos: mergedTodos.filter((t) => t.scheduledSessionId === session.id),
+        todos: mergedTodos.filter((t: Todo) => t.scheduledSessionId === session.id),
       }));
 
       setSessions(sessionsWithTodos);
@@ -114,6 +141,24 @@ function App() {
       setStatusMessage('Error scanning TODOs');
     }
   }, [config, todos, sessions]);
+
+  const refreshUsage = useCallback(async () => {
+    if (!getApiKey()) {
+      setStatusMessage('Set ANTHROPIC_API_KEY to check usage');
+      return;
+    }
+
+    setStatusMessage('Checking usage...');
+    const result = await checkUsage();
+    if (result.success && result.rateLimit) {
+      setRateLimit(result.rateLimit);
+      setUsageError(null);
+      setStatusMessage('Usage updated');
+    } else {
+      setUsageError(result.error || 'unknown error');
+      setStatusMessage(`Usage error: ${result.error}`);
+    }
+  }, []);
 
   const assignTodoToSession = useCallback(
     (todoIndex: number, sessionIndex: number) => {
@@ -183,6 +228,11 @@ function App() {
       return;
     }
 
+    if (input === 'u' && !assignMode) {
+      refreshUsage();
+      return;
+    }
+
     // Escape to cancel assign mode
     if (key.escape && assignMode) {
       setAssignMode(false);
@@ -237,8 +287,8 @@ function App() {
   if (loading) {
     return (
       <Box flexDirection="column" padding={1}>
-        <Text color="cyan">CLAUDE CLOCK</Text>
-        <Text color="gray">Loading...</Text>
+        <Text>claude-clock</Text>
+        <Text dimColor>Loading...</Text>
       </Box>
     );
   }
@@ -255,10 +305,12 @@ function App() {
         selectedConfigField={selectedConfigField}
         assignMode={assignMode}
         assignSessionIndex={assignSessionIndex}
+        rateLimit={rateLimit}
+        usageError={usageError}
       />
       {statusMessage && (
         <Box paddingX={1}>
-          <Text color="gray">{statusMessage}</Text>
+          <Text dimColor>{statusMessage}</Text>
         </Box>
       )}
     </Box>
