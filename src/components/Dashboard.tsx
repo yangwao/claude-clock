@@ -81,21 +81,21 @@ export function Dashboard({
       </Box>
 
       <Box marginTop={1} paddingX={1}>
-        <Text dimColor={view !== 'dashboard'} color={view === 'dashboard' ? 'white' : undefined}>
+        <Text color={view === 'dashboard' ? 'cyan' : undefined} dimColor={view !== 'dashboard'} bold={view === 'dashboard'}>
           d
         </Text>
         <Text dimColor> dashboard  </Text>
-        <Text dimColor={view !== 'todos'} color={view === 'todos' ? 'white' : undefined}>
+        <Text color={view === 'todos' ? 'cyan' : undefined} dimColor={view !== 'todos'} bold={view === 'todos'}>
           t
         </Text>
         <Text dimColor> todos  </Text>
-        <Text dimColor={view !== 'schedule'} color={view === 'schedule' ? 'white' : undefined}>
+        <Text color={view === 'schedule' ? 'cyan' : undefined} dimColor={view !== 'schedule'} bold={view === 'schedule'}>
           s
         </Text>
         <Text dimColor> settings  </Text>
-        <Text dimColor>u</Text>
+        <Text color="blue">u</Text>
         <Text dimColor> usage  </Text>
-        <Text dimColor>q</Text>
+        <Text color="red">q</Text>
         <Text dimColor> quit</Text>
       </Box>
     </Box>

@@ -11,17 +11,37 @@ interface StatusBarProps {
   usageError: string | null;
 }
 
-function UsageBar({ remaining, limit, width = 16 }: { remaining: number; limit: number; width?: number }) {
-  const ratio = Math.min(1, remaining / limit);
+function UsageBar({ used, width = 12 }: { used: number; width?: number }) {
+  // used is a percentage (0-100)
+  const ratio = Math.min(1, used / 100);
   const filled = Math.round(ratio * width);
   const empty = width - filled;
 
+  // Color based on usage level
+  let color: string | undefined;
+  if (used >= 80) {
+    color = 'red';
+  } else if (used >= 50) {
+    color = 'yellow';
+  } else {
+    color = 'green';
+  }
+
   return (
-    <Text dimColor>
-      {'●'.repeat(filled)}
-      {'·'.repeat(empty)}
+    <Text>
+      <Text color={color}>{'█'.repeat(filled)}</Text>
+      <Text dimColor>{'░'.repeat(empty)}</Text>
     </Text>
   );
+}
+
+function formatAbsoluteTime(date: Date): string {
+  const hours = date.getHours();
+  const minutes = date.getMinutes();
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  const hour12 = hours % 12 || 12;
+  const minStr = minutes.toString().padStart(2, '0');
+  return `${hour12}:${minStr} ${ampm}`;
 }
 
 export function StatusBar({ sessions, rateLimit, usageError }: StatusBarProps) {
@@ -48,32 +68,33 @@ export function StatusBar({ sessions, rateLimit, usageError }: StatusBarProps) {
   return (
     <Box flexDirection="column" paddingX={1} paddingY={1}>
       <Box justifyContent="space-between">
-        <Text>claude-clock</Text>
+        <Text color="magenta" bold>claude-clock</Text>
         <Text dimColor>{timeDisplay}</Text>
       </Box>
 
       {rateLimit ? (
         <Box marginTop={1} flexDirection="column">
           <Box>
-            <Text dimColor>requests </Text>
-            <UsageBar remaining={rateLimit.requestsRemaining} limit={rateLimit.requestsLimit} width={12} />
-            <Text dimColor> {rateLimit.requestsRemaining}/{rateLimit.requestsLimit}</Text>
+            <Text dimColor>5h used </Text>
+            <UsageBar used={100 - rateLimit.requestsRemaining} />
+            <Text dimColor> {100 - rateLimit.requestsRemaining}%</Text>
           </Box>
           <Box>
-            <Text dimColor>tokens   </Text>
-            <UsageBar remaining={rateLimit.tokensRemaining} limit={rateLimit.tokensLimit} width={12} />
-            <Text dimColor> {Math.round(rateLimit.tokensRemaining / 1000)}k/{Math.round(rateLimit.tokensLimit / 1000)}k</Text>
+            <Text dimColor>7d used </Text>
+            <UsageBar used={100 - rateLimit.tokensRemaining} />
+            <Text dimColor> {100 - rateLimit.tokensRemaining}%</Text>
           </Box>
           <Box marginTop={0}>
-            <Text dimColor>resets in {formatTimeUntilReset(rateLimit.tokensReset)}</Text>
-            {sessionStatus && <Text dimColor> · {sessionStatus}</Text>}
+            <Text dimColor>resets in </Text>
+            <Text color="cyan">{formatTimeUntilReset(rateLimit.requestsReset)}</Text>
+            <Text dimColor> ({formatAbsoluteTime(rateLimit.requestsReset)})</Text>
           </Box>
         </Box>
       ) : (
         <Box marginTop={1} flexDirection="column">
           <Text dimColor>
-            {usageError === 'no api key'
-              ? 'set ANTHROPIC_API_KEY for usage stats'
+            {usageError === 'no credentials'
+              ? 'login to claude cli for usage stats'
               : usageError
                 ? `usage: ${usageError}`
                 : 'loading usage...'}

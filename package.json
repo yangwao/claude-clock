@@ -7,21 +7,35 @@
   "bin": {
     "claude-clock": "dist/cli.js"
   },
+  "files": [
+    "dist/**/*"
+  ],
   "scripts": {
     "build": "tsc",
     "start": "node dist/cli.js",
     "tui": "node dist/index.js",
     "daemon": "node dist/cli.js daemon",
-    "dev": "tsc && node dist/cli.js"
+    "dev": "tsc && node dist/cli.js",
+    "prepublishOnly": "npm run build"
   },
   "keywords": [
     "claude",
+    "claude-code",
     "scheduler",
     "tui",
     "terminal",
-    "automation"
+    "automation",
+    "anthropic"
   ],
+  "author": "",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": ""
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "dependencies": {
     "chalk": "^4.1.2",
     "date-fns": "^3.6.0",

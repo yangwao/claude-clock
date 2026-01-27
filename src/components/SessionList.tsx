@@ -32,14 +32,14 @@ export function SessionList({ sessions, selectedIndex }: SessionListProps) {
 
         return (
           <Box key={session.id} paddingX={1}>
-            <Text dimColor={!isSelected && !isActive}>
+            <Text color={isSelected ? 'cyan' : undefined} dimColor={!isSelected && !isActive}>
               {marker} {timeStr}
             </Text>
             {todoCount > 0 && (
-              <Text dimColor>{todoText}</Text>
+              <Text color="yellow" dimColor={!isSelected}>{todoText}</Text>
             )}
             {isActive && (
-              <Text dimColor> · active</Text>
+              <Text color="green"> · active</Text>
             )}
             {isCompleted && (
               <Text dimColor> · done</Text>
@@ -66,30 +66,35 @@ export function SessionDetail({ session }: SessionDetailProps) {
 
   const timeStr = formatSessionTime(session.startTime, session.endTime);
 
+  const statusColor = session.status === 'active' ? 'green' : session.status === 'completed' ? 'gray' : 'blue';
+
   return (
     <Box flexDirection="column" paddingX={1}>
-      <Text>{timeStr}</Text>
-      <Text dimColor>{session.status}</Text>
+      <Text color="cyan">{timeStr}</Text>
+      <Text color={statusColor}>{session.status}</Text>
 
       <Box marginTop={1} flexDirection="column">
         <Text dimColor>tasks:</Text>
         {session.todos.length === 0 ? (
           <Text dimColor>  none assigned</Text>
         ) : (
-          session.todos.map((todo: { id: string; pattern: string; title: string; filePath?: string; lineNumber?: number }) => (
-            <Box key={todo.id}>
-              <Text dimColor>  </Text>
-              <Text>{todo.pattern.toLowerCase()}</Text>
-              <Text dimColor> · </Text>
-              <Text>{todo.title}</Text>
-              {todo.filePath && (
-                <Text dimColor>
-                  {' '}· {todo.filePath}
-                  {todo.lineNumber ? `:${todo.lineNumber}` : ''}
-                </Text>
-              )}
-            </Box>
-          ))
+          session.todos.map((todo: { id: string; pattern: string; title: string; filePath?: string; lineNumber?: number }) => {
+            const patternColor = todo.pattern === 'FIXME' ? 'red' : todo.pattern === 'TODO' ? 'yellow' : 'blue';
+            return (
+              <Box key={todo.id}>
+                <Text dimColor>  </Text>
+                <Text color={patternColor}>{todo.pattern.toLowerCase()}</Text>
+                <Text dimColor> · </Text>
+                <Text>{todo.title}</Text>
+                {todo.filePath && (
+                  <Text dimColor>
+                    {' '}· {todo.filePath}
+                    {todo.lineNumber ? `:${todo.lineNumber}` : ''}
+                  </Text>
+                )}
+              </Box>
+            );
+          })
         )}
       </Box>
     </Box>

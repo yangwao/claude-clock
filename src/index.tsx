@@ -13,7 +13,7 @@ import {
   loadCache,
   scheduleFileExists,
 } from './services/scheduleFile.js';
-import { checkUsage, getApiKey } from './services/apiUsage.js';
+import { checkUsage, getApiKey, hasCliCredentials } from './services/apiUsage.js';
 
 function App() {
   const { exit } = useApp();
@@ -42,7 +42,7 @@ function App() {
   useEffect(() => {
     const fetchUsage = async () => {
       if (!getApiKey()) {
-        setUsageError('no api key');
+        setUsageError('no credentials');
         return;
       }
 
@@ -144,7 +144,7 @@ function App() {
 
   const refreshUsage = useCallback(async () => {
     if (!getApiKey()) {
-      setStatusMessage('Set ANTHROPIC_API_KEY to check usage');
+      setStatusMessage('Login to Claude CLI to check usage');
       return;
     }
 

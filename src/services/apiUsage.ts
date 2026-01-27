@@ -1,5 +1,7 @@
 import https from 'https';
-import { URL } from 'url';
+import fs from 'fs';
+import path from 'path';
+import os from 'os';
 
 export interface RateLimitInfo {
   requestsLimit: number;
@@ -14,6 +16,175 @@ export interface UsageCheckResult {
   success: boolean;
   rateLimit?: RateLimitInfo;
   error?: string;
+}
+
+interface ClaudeCredentials {
+  claudeAiOauth?: {
+    accessToken: string;
+    refreshToken: string;
+    expiresAt: number;
+    scopes: string[];
+    subscriptionType: string;
+    rateLimitTier: string;
+  };
+}
+
+interface OAuthUsageResponse {
+  five_hour: {
+    utilization: number;
+    resets_at: string;
+  } | null;
+  seven_day: {
+    utilization: number;
+    resets_at: string;
+  } | null;
+  seven_day_sonnet: {
+    utilization: number;
+    resets_at: string;
+  } | null;
+  seven_day_opus: {
+    utilization: number;
+    resets_at: string;
+  } | null;
+  extra_usage: {
+    is_enabled: boolean;
+    monthly_limit: number;
+    used_credits: number;
+    utilization: number | null;
+  } | null;
+}
+
+function getCredentialsPath(): string {
+  // On Linux: ~/.claude/.credentials.json
+  // On macOS: Uses Keychain (service "Claude Code-credentials"), but also has file fallback
+  return path.join(os.homedir(), '.claude', '.credentials.json');
+}
+
+function loadCliCredentials(): string | null {
+  const credPath = getCredentialsPath();
+
+  try {
+    if (!fs.existsSync(credPath)) {
+      return null;
+    }
+
+    const content = fs.readFileSync(credPath, 'utf-8');
+    const credentials: ClaudeCredentials = JSON.parse(content);
+
+    if (credentials.claudeAiOauth?.accessToken) {
+      // Check if token is expired
+      const expiresAt = credentials.claudeAiOauth.expiresAt;
+      if (expiresAt && Date.now() > expiresAt) {
+        return null; // Token expired
+      }
+      return credentials.claudeAiOauth.accessToken;
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+export function getApiKey(): string | null {
+  // First try CLI OAuth credentials
+  const cliToken = loadCliCredentials();
+  if (cliToken) {
+    return cliToken;
+  }
+
+  // Fall back to environment variable
+  return process.env.ANTHROPIC_API_KEY || null;
+}
+
+export function hasCliCredentials(): boolean {
+  return loadCliCredentials() !== null;
+}
+
+async function checkUsageViaOAuth(accessToken: string): Promise<UsageCheckResult> {
+  return new Promise((resolve) => {
+    const options = {
+      hostname: 'api.anthropic.com',
+      port: 443,
+      path: '/api/oauth/usage',
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+        'User-Agent': 'claude-code/2.1.5',
+        'anthropic-beta': 'oauth-2025-04-20',
+      },
+    };
+
+    const req = https.request(options, (res) => {
+      let body = '';
+
+      res.on('data', (chunk) => {
+        body += chunk;
+      });
+
+      res.on('end', () => {
+        if (res.statusCode === 200) {
+          try {
+            const data: OAuthUsageResponse = JSON.parse(body);
+            const rateLimit = parseOAuthUsageResponse(data);
+
+            if (rateLimit) {
+              resolve({ success: true, rateLimit });
+            } else {
+              resolve({ success: false, error: 'Failed to parse usage data' });
+            }
+          } catch (e) {
+            resolve({ success: false, error: 'Invalid response format' });
+          }
+        } else if (res.statusCode === 401) {
+          resolve({ success: false, error: 'CLI token expired - run claude to re-auth' });
+        } else {
+          resolve({ success: false, error: `API error: ${res.statusCode}` });
+        }
+      });
+    });
+
+    req.on('error', (err) => {
+      resolve({ success: false, error: `Network error: ${err.message}` });
+    });
+
+    req.setTimeout(10000, () => {
+      req.destroy();
+      resolve({ success: false, error: 'Request timeout' });
+    });
+
+    req.end();
+  });
+}
+
+function parseOAuthUsageResponse(data: OAuthUsageResponse): RateLimitInfo | null {
+  // The API returns utilization as a percentage (0-100)
+  // We'll map this to our RateLimitInfo structure:
+  // - five_hour -> "requests" (short-term usage)
+  // - seven_day -> "tokens" (long-term usage)
+
+  const fiveHour = data.five_hour;
+  const sevenDay = data.seven_day;
+
+  if (!fiveHour && !sevenDay) {
+    return null;
+  }
+
+  // Convert utilization percentage to remaining/limit (treat as 100-based)
+  const fiveHourUtilization = fiveHour?.utilization ?? 0;
+  const sevenDayUtilization = sevenDay?.utilization ?? 0;
+
+  return {
+    // Five hour usage (session limit)
+    requestsLimit: 100,
+    requestsRemaining: Math.round(100 - fiveHourUtilization),
+    requestsReset: fiveHour?.resets_at ? new Date(fiveHour.resets_at) : new Date(),
+    // Seven day usage (weekly limit)
+    tokensLimit: 100,
+    tokensRemaining: Math.round(100 - sevenDayUtilization),
+    tokensReset: sevenDay?.resets_at ? new Date(sevenDay.resets_at) : new Date(),
+  };
 }
 
 function parseRateLimitHeaders(headers: Record<string, string | string[] | undefined>): RateLimitInfo | null {
@@ -43,20 +214,7 @@ function parseRateLimitHeaders(headers: Record<string, string | string[] | undef
   };
 }
 
-export function getApiKey(): string | null {
-  return process.env.ANTHROPIC_API_KEY || null;
-}
-
-export async function checkUsage(): Promise<UsageCheckResult> {
-  const apiKey = getApiKey();
-
-  if (!apiKey) {
-    return {
-      success: false,
-      error: 'ANTHROPIC_API_KEY not set',
-    };
-  }
-
+async function checkUsageViaApiKey(apiKey: string): Promise<UsageCheckResult> {
   return new Promise((resolve) => {
     const data = JSON.stringify({
       model: 'claude-sonnet-4-20250514',
@@ -123,6 +281,25 @@ export async function checkUsage(): Promise<UsageCheckResult> {
     req.write(data);
     req.end();
   });
+}
+
+export async function checkUsage(): Promise<UsageCheckResult> {
+  // First try CLI OAuth credentials
+  const cliToken = loadCliCredentials();
+  if (cliToken) {
+    return checkUsageViaOAuth(cliToken);
+  }
+
+  // Fall back to API key
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (apiKey) {
+    return checkUsageViaApiKey(apiKey);
+  }
+
+  return {
+    success: false,
+    error: 'no credentials',
+  };
 }
 
 export function formatTimeUntilReset(resetTime: Date): string {
