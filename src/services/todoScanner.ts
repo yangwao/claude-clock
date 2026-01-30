@@ -6,234 +6,151 @@ import { Todo } from '../types/index.js';
 const TODO_PATTERNS = ['TODO', 'FIXME', 'PLAN', 'SPEC'] as const;
 type TodoPattern = (typeof TODO_PATTERNS)[number];
 
-const IGNORE_DIRS = [
-  'node_modules',
-  '.git',
-  'dist',
-  'build',
-  'coverage',
-  '.next',
-  '.cache',
-  'vendor',
-  '__pycache__',
-];
-
-const SCAN_EXTENSIONS = [
-  '.ts',
-  '.tsx',
-  '.js',
-  '.jsx',
-  '.py',
-  '.go',
-  '.rs',
-  '.java',
-  '.c',
-  '.cpp',
-  '.h',
-  '.hpp',
-  '.md',
-  '.txt',
-  '.yaml',
-  '.yml',
-  '.json',
-];
-
-interface ScannedTodo {
-  pattern: TodoPattern;
+interface ParsedItem {
   title: string;
-  filePath: string;
+  pattern: TodoPattern;
   lineNumber: number;
-  context: string;
 }
 
-function shouldIgnoreDir(dirName: string): boolean {
-  return IGNORE_DIRS.includes(dirName) || dirName.startsWith('.');
+function detectPattern(text: string): TodoPattern {
+  const upper = text.toUpperCase();
+  if (upper.startsWith('FIXME')) return 'FIXME';
+  if (upper.startsWith('PLAN')) return 'PLAN';
+  if (upper.startsWith('SPEC')) return 'SPEC';
+  if (upper.startsWith('TODO')) return 'TODO';
+  return 'TODO';
 }
 
-function shouldScanFile(fileName: string): boolean {
-  const ext = path.extname(fileName).toLowerCase();
-  return SCAN_EXTENSIONS.includes(ext);
+function cleanTitle(text: string, pattern: TodoPattern): string {
+  // Remove pattern prefix like "TODO: " or "FIXME: "
+  const regex = new RegExp(`^${pattern}\\s*:\\s*`, 'i');
+  return text.replace(regex, '').trim();
 }
 
-function extractTodoFromLine(
-  line: string,
-  pattern: TodoPattern
-): { title: string } | null {
-  // Match patterns that look like actual TODO comments:
-  // - Must be preceded by comment markers (// # /* * -) or start of line with whitespace
-  // - Pattern must be followed by colon and then a space and actual text
-  // - The text after should look like a sentence/description, not code
-  const commentPrefixes = '(?:^\\s*|//\\s*|#\\s*|/\\*\\s*|\\*\\s*|<!--\\s*|-\\s*)';
-  const regex = new RegExp(`${commentPrefixes}${pattern}\\s*:\\s+([A-Za-z].*)`, 'i');
-  const match = line.match(regex);
-
-  if (match && match[1]) {
-    // Clean up the title
-    let title = match[1].trim();
-    // Remove trailing comment closers
-    title = title.replace(/\s*\*\/\s*$/, '');
-    title = title.replace(/\s*-->?\s*$/, '');
-    // Remove leading/trailing quotes if present
-    title = title.replace(/^["']|["']$/g, '');
-
-    // Skip if it looks like code (contains common code patterns)
-    if (title.includes("'") && title.includes(',')) {
-      return null;
-    }
-
-    if (title.length > 0 && title.length < 200) {
-      return { title };
-    }
-  }
-
-  return null;
-}
-
-function scanFile(filePath: string, projectPath: string): ScannedTodo[] {
-  const todos: ScannedTodo[] = [];
+function parseMarkdownFile(filePath: string): ParsedItem[] {
+  const items: ParsedItem[] = [];
 
   try {
+    if (!fs.existsSync(filePath)) return items;
+
     const content = fs.readFileSync(filePath, 'utf-8');
     const lines = content.split('\n');
 
     lines.forEach((line, index) => {
-      for (const pattern of TODO_PATTERNS) {
-        if (line.toUpperCase().includes(pattern)) {
-          const extracted = extractTodoFromLine(line, pattern);
-          if (extracted) {
-            // Get context (surrounding lines)
-            const contextStart = Math.max(0, index - 1);
-            const contextEnd = Math.min(lines.length, index + 2);
-            const context = lines.slice(contextStart, contextEnd).join('\n');
+      const trimmed = line.trim();
 
-            const relativePath = path.relative(projectPath, filePath);
+      // Match markdown list items:
+      // - [ ] Task description
+      // - [x] Completed task (skip)
+      // - Task description
+      // * Task description
+      // Also match TODO/FIXME patterns in comments
 
-            todos.push({
-              pattern,
-              title: extracted.title,
-              filePath: relativePath,
-              lineNumber: index + 1,
-              context,
-            });
+      // Skip completed items
+      if (/^[-*]\s*\[x\]/i.test(trimmed)) return;
+
+      // Checkbox items: - [ ] text
+      const checkboxMatch = trimmed.match(/^[-*]\s*\[\s*\]\s+(.+)/);
+      if (checkboxMatch) {
+        const text = checkboxMatch[1].trim();
+        if (text.length > 0) {
+          const pattern = detectPattern(text);
+          items.push({
+            title: cleanTitle(text, pattern),
+            pattern,
+            lineNumber: index + 1,
+          });
+          return;
+        }
+      }
+
+      // Plain list items: - text or * text (but not headers or blank lines)
+      const listMatch = trimmed.match(/^[-*]\s+([^[\s].+)/);
+      if (listMatch) {
+        const text = listMatch[1].trim();
+        // Skip if it looks like a section separator or header-like
+        if (text.length > 0 && !text.startsWith('#') && !text.startsWith('---')) {
+          const pattern = detectPattern(text);
+          items.push({
+            title: cleanTitle(text, pattern),
+            pattern,
+            lineNumber: index + 1,
+          });
+          return;
+        }
+      }
+
+      // Comment-style TODOs: <!-- TODO: text --> or // TODO: text
+      for (const pat of TODO_PATTERNS) {
+        if (trimmed.toUpperCase().includes(pat)) {
+          const commentPrefixes = '(?://\\s*|#\\s*|/\\*\\s*|\\*\\s*|<!--\\s*|-\\s*)';
+          const regex = new RegExp(`${commentPrefixes}${pat}\\s*:\\s+(.+)`, 'i');
+          const match = trimmed.match(regex);
+          if (match && match[1]) {
+            let title = match[1].trim();
+            title = title.replace(/\s*\*\/\s*$/, '');
+            title = title.replace(/\s*-->?\s*$/, '');
+            if (title.length > 0 && title.length < 200) {
+              items.push({
+                title,
+                pattern: pat,
+                lineNumber: index + 1,
+              });
+            }
+            return;
           }
         }
       }
     });
-  } catch (error) {
+  } catch {
     // Skip files that can't be read
   }
 
-  return todos;
+  return items;
 }
 
-function walkDirectory(dir: string, projectPath: string): ScannedTodo[] {
-  const todos: ScannedTodo[] = [];
-
-  try {
-    const entries = fs.readdirSync(dir, { withFileTypes: true });
-
-    for (const entry of entries) {
-      const fullPath = path.join(dir, entry.name);
-
-      if (entry.isDirectory()) {
-        if (!shouldIgnoreDir(entry.name)) {
-          todos.push(...walkDirectory(fullPath, projectPath));
-        }
-      } else if (entry.isFile()) {
-        if (shouldScanFile(entry.name)) {
-          todos.push(...scanFile(fullPath, projectPath));
-        }
-      }
-    }
-  } catch (error) {
-    // Skip directories that can't be read
-  }
-
-  return todos;
-}
-
-// Files that contain Claude-specific tasks
-const CLAUDE_TODO_FILES = [
-  'CLAUDE.md',
-  'CLAUDE_TODOS.md',
-  '.claude/todos.md',
-  '.claude/tasks.md',
-];
-
-function scanClaudeTodos(projectPath: string): ScannedTodo[] {
-  const todos: ScannedTodo[] = [];
-
-  for (const file of CLAUDE_TODO_FILES) {
-    const filePath = path.join(projectPath, file);
-    if (fs.existsSync(filePath)) {
-      todos.push(...scanFile(filePath, projectPath));
-    }
-  }
-
-  return todos;
-}
+// Files to scan for TODOs
+const PROJECT_TODO_FILES = ['TODO.md', 'TODOS.md'];
+const CLAUDE_TODO_FILES = ['CLAUDE.md', 'CLAUDE_TODOS.md', '.claude/todos.md', '.claude/tasks.md'];
 
 export function scanForTodos(projectPath: string): Todo[] {
-  const scannedTodos = walkDirectory(projectPath, projectPath);
-  const claudeTodos = scanClaudeTodos(projectPath);
+  const results: Todo[] = [];
 
-  // Mark Claude TODOs
-  const claudeFilePaths = new Set(CLAUDE_TODO_FILES);
+  // Scan Claude files
+  for (const file of CLAUDE_TODO_FILES) {
+    const filePath = path.join(projectPath, file);
+    const items = parseMarkdownFile(filePath);
+    for (const item of items) {
+      results.push({
+        id: uuidv4(),
+        title: item.title,
+        source: 'claude',
+        filePath: file,
+        lineNumber: item.lineNumber,
+        pattern: item.pattern,
+        scheduledSessionId: undefined,
+      });
+    }
+  }
 
-  // Sort by file depth (root level first), then by pattern priority, then by file path
-  const patternPriority: Record<string, number> = {
-    'FIXME': 0,
-    'TODO': 1,
-    'PLAN': 2,
-    'SPEC': 3,
-  };
+  // Scan project TODO files
+  for (const file of PROJECT_TODO_FILES) {
+    const filePath = path.join(projectPath, file);
+    const items = parseMarkdownFile(filePath);
+    for (const item of items) {
+      results.push({
+        id: uuidv4(),
+        title: item.title,
+        source: 'scanned',
+        filePath: file,
+        lineNumber: item.lineNumber,
+        pattern: item.pattern,
+        scheduledSessionId: undefined,
+      });
+    }
+  }
 
-  const sortTodos = (todos: ScannedTodo[]) => {
-    todos.sort((a, b) => {
-      // Count path depth (fewer slashes = closer to root)
-      const depthA = (a.filePath.match(/\//g) || []).length;
-      const depthB = (b.filePath.match(/\//g) || []).length;
-
-      if (depthA !== depthB) {
-        return depthA - depthB; // Root level first
-      }
-
-      // Then by pattern priority (FIXME first)
-      const priorityA = patternPriority[a.pattern] ?? 99;
-      const priorityB = patternPriority[b.pattern] ?? 99;
-
-      if (priorityA !== priorityB) {
-        return priorityA - priorityB;
-      }
-
-      // Then alphabetically by file path
-      return a.filePath.localeCompare(b.filePath);
-    });
-  };
-
-  sortTodos(claudeTodos);
-  sortTodos(scannedTodos);
-
-  // Filter out Claude files from scanned todos (they're in claudeTodos)
-  const projectTodos = scannedTodos.filter(
-    (t) => !claudeFilePaths.has(t.filePath) && !t.filePath.startsWith('.claude/')
-  );
-
-  const mapToTodo = (scanned: ScannedTodo, source: 'scanned' | 'claude'): Todo => ({
-    id: uuidv4(),
-    title: scanned.title,
-    source,
-    filePath: scanned.filePath,
-    lineNumber: scanned.lineNumber,
-    pattern: scanned.pattern,
-    context: scanned.context,
-    scheduledSessionId: undefined,
-  });
-
-  return [
-    ...claudeTodos.map((t) => mapToTodo(t, 'claude')),
-    ...projectTodos.map((t) => mapToTodo(t, 'scanned')),
-  ];
+  return results;
 }
 
 export function createManualTodo(
@@ -253,11 +170,11 @@ export function mergeTodos(existing: Todo[], scanned: Todo[]): Todo[] {
   // Keep manual todos and merge with scanned
   const manualTodos = existing.filter((t) => t.source === 'manual');
 
-  // For scanned todos, try to preserve scheduling by matching on file+line
+  // For scanned/claude todos, preserve scheduling by matching on file+line
   const mergedScanned = scanned.map((newTodo) => {
     const existingMatch = existing.find(
       (e) =>
-        e.source === 'scanned' &&
+        e.source === newTodo.source &&
         e.filePath === newTodo.filePath &&
         e.lineNumber === newTodo.lineNumber
     );

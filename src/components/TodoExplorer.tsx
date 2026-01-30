@@ -28,7 +28,7 @@ function TodoItem({ todo, isSelected }: { todo: Todo; isSelected: boolean }) {
         <Text color={isSelected ? 'white' : undefined} dimColor={!isSelected}>{todo.title}</Text>
       </Box>
 
-      {todo.filePath && (
+      {todo.filePath && isSelected && (
         <Box paddingLeft={2}>
           <Text dimColor>
             {todo.filePath}
@@ -36,19 +36,13 @@ function TodoItem({ todo, isSelected }: { todo: Todo; isSelected: boolean }) {
           </Text>
         </Box>
       )}
-
-      {isSelected && todo.context && (
-        <Box paddingLeft={2} flexDirection="column">
-          {todo.context.split('\n').slice(0, 2).map((line: string, i: number) => (
-            <Text key={i} dimColor>
-              {line.length > 50 ? line.substring(0, 50) + '...' : line}
-            </Text>
-          ))}
-        </Box>
-      )}
     </Box>
   );
 }
+
+type ListEntry =
+  | { type: 'header'; label: string; color: string; count: number }
+  | { type: 'todo'; todo: Todo; flatIndex: number };
 
 export function TodoExplorer({
   todos,
@@ -68,18 +62,33 @@ export function TodoExplorer({
         <Box marginTop={1}>
           <Text dimColor>No unscheduled items found.</Text>
         </Box>
-        <Box marginTop={1}>
-          <Text dimColor>Add tasks to CLAUDE.md or use TODO/FIXME comments.</Text>
-        </Box>
-        <Box marginTop={1}>
+        <Box marginTop={1} flexDirection="column">
+          <Text dimColor>Add tasks to TODO.md or CLAUDE.md in project root.</Text>
           <Text dimColor>Press r to rescan.</Text>
         </Box>
       </Box>
     );
   }
 
-  // Calculate which section the selected index is in
-  let currentIndex = 0;
+  // Build flat list with headers for rendering
+  const entries: ListEntry[] = [];
+  let flatIndex = 0;
+
+  if (claudeTodos.length > 0) {
+    entries.push({ type: 'header', label: 'claude tasks', color: 'magenta', count: claudeTodos.length });
+    for (const todo of claudeTodos) {
+      entries.push({ type: 'todo', todo, flatIndex });
+      flatIndex++;
+    }
+  }
+
+  if (projectTodos.length > 0) {
+    entries.push({ type: 'header', label: 'project todos', color: 'blue', count: projectTodos.length });
+    for (const todo of projectTodos) {
+      entries.push({ type: 'todo', todo, flatIndex });
+      flatIndex++;
+    }
+  }
 
   return (
     <Box flexDirection="column" paddingY={1}>
@@ -88,35 +97,26 @@ export function TodoExplorer({
         <Text dimColor> · {unscheduledTodos.length} unscheduled</Text>
       </Box>
 
-      {/* Claude TODOs section */}
-      {claudeTodos.length > 0 && (
-        <Box marginTop={1} flexDirection="column">
-          <Box paddingX={1}>
-            <Text color="magenta">claude tasks</Text>
-            <Text dimColor> · {claudeTodos.length}</Text>
-          </Box>
-          {claudeTodos.map((todo) => {
-            const isSelected = currentIndex === selectedIndex;
-            currentIndex++;
-            return <TodoItem key={todo.id} todo={todo} isSelected={isSelected} />;
-          })}
-        </Box>
-      )}
+      <Box marginTop={1} flexDirection="column">
+        {entries.map((entry, i) => {
+          if (entry.type === 'header') {
+            return (
+              <Box key={`h-${i}`} paddingX={1} marginTop={i > 0 ? 1 : 0}>
+                <Text color={entry.color}>{entry.label}</Text>
+                <Text dimColor> · {entry.count}</Text>
+              </Box>
+            );
+          }
 
-      {/* Project TODOs section */}
-      {projectTodos.length > 0 && (
-        <Box marginTop={1} flexDirection="column">
-          <Box paddingX={1}>
-            <Text color="blue">project todos</Text>
-            <Text dimColor> · {projectTodos.length}</Text>
-          </Box>
-          {projectTodos.map((todo) => {
-            const isSelected = currentIndex === selectedIndex;
-            currentIndex++;
-            return <TodoItem key={todo.id} todo={todo} isSelected={isSelected} />;
-          })}
-        </Box>
-      )}
+          return (
+            <TodoItem
+              key={entry.todo.id}
+              todo={entry.todo}
+              isSelected={entry.flatIndex === selectedIndex}
+            />
+          );
+        })}
+      </Box>
 
       {assignMode && (
         <Box marginTop={1} flexDirection="column" paddingX={1}>
