@@ -10,8 +10,8 @@ export function getConfigPath(projectPath: string): string {
 
 export function getDefaultConfig(): Config {
   return {
-    sleepStart: '22:00',
-    sleepEnd: '07:00',
+    sleepStart: '20:00',
+    sleepEnd: '11:00',
     projectPath: process.cwd(),
   };
 }

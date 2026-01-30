@@ -18,15 +18,15 @@ Usage:
 Daemon Mode:
   The daemon monitors your schedule and automatically runs Claude Code
   when a session becomes active. Sessions are defined by your sleep hours
-  (default 22:00-07:00) split into 5-hour windows.
+  (default 20:00-11:00) split into 5-hour windows.
 
   Logs are saved to .claude-clock-logs/ in your project directory.
 
 Configuration:
   Edit .claude-clock.json to change sleep hours:
   {
-    "sleepStart": "22:00",
-    "sleepEnd": "07:00"
+    "sleepStart": "20:00",
+    "sleepEnd": "11:00"
   }
 
 Files:
